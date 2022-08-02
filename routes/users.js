@@ -1,63 +1,69 @@
 // importing  standard libararies
 const router = require("express").Router();
-const db = require("../connection");
-const moment=require("moment")
+const moment = require("moment");
 
-// create users table
-router.get("/createUserTable", (req, res) => {
-  sqlQuery = `CREATE TABLE users( 
-            userId INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(500),
-            email VARCHAR(2000),
-            phone VARCHAR(15),
-            password VARCHAR(2000),
-            role ENUM("store_owner","staff","delivery_guy"),
-            createdDate DATETIME
-            ) AUTO_INCREMENT=4000`;
+// import user schema
+const User = require("../schema/user");
+
+// create user
+router.post("/addUser", async (req, res) => {
   try {
-    db.query(sqlQuery, (err, result) => {
-      if (err) {
-        throw err;
-      } else {
-        res.status(200).json({ msg: "users table created successful" });
-      }
+    let newUser = new User({
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone,
+      password: req.body.password,
+      role: req.body.role,
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
     });
+    await newUser.save();
+    res.status(200).json({ msg: "user created successful" });
   } catch (err) {
-    console.log(err);
+    res.status(500).json({ msg: "something went wrong" });
   }
 });
 
-// post route to collect user data
-router.post("/addUser", (req, res) => {
-  sqlQuery = `INSERT INTO users SET ?`;
-  db.query(sqlQuery, {...req.body,createdDate:moment(Date.now()).format('YYYY-MM-DD HH:mm:ss')}, (err, result) => {
-    if (err) {
-      throw err;
-    } else {
-      res.status(200).json({ msg: "added user successfully" });
-    }
-  });
-});
-
-// get all users
-router.post("/getUsers", (req, res) => {
-    console.log(req.body)
-  sqlQuery = req.body.role
-    ? `SELECT * FROM users WHERE role="${req.body.role}"`
-    : `SELECT * FROM users`;
-  db.query(sqlQuery, (err, result) => {
-    if (err) {
-      throw err;
-    } else {
-      res.send(result);
-    }
-  });
-});
-
 // get specific users
+//      or
+// get all users
+router.get("/getUsers", async (req, res) => {
+  try {
+    let users;
+    if (req.body.role) {
+      users = await User.find({ role: req.body?.role });
+    } else {
+      users = await User.find();
+    }
+    res.status(200).send(users);
+  } catch (err) {
+    res.status(500).json({ msg: "something went wrong" });
+  }
+});
 
 // delete user
+router.delete("/deleteUser", async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.body.userId);
+    res.status(200).json({ msg: "user deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: "something went wrong" });
+  }
+});
 
 // edit user
-
+router.put("/editUser", async (req, res) => {
+  try {
+    let updatedUser = await User.findByIdAndUpdate(
+      req.body.userId,
+      {
+        $set: {...req.body, updatedDate:Date.now()},
+      },
+      { new: true }
+    );
+    res.status(200).json({updatedUser:updatedUser, msg:"user updated success"})
+  } catch (err) {
+    res.status(500).json({ msg: "something went wrong" });
+  }
+});
 module.exports = router;
